@@ -6,6 +6,7 @@ Python code for the raspberry pi to control a PCA9685 based pan/tilt servo and t
 sudo apt-get install python3-pip
 sudo pip3 install flask
 sudo pip3 install smbus
+sudo pip3 install opencv-python
 sudo raspi-config
 	Select "Interfacing Options."
 	Select "I2C."
