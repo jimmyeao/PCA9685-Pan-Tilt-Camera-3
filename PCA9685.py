@@ -32,7 +32,7 @@ PAGE = """\
 <title>picamera2 MJPEG stream</title>
 </head>
 <body>
-<h1>Picamera2 MJPEG Streaming Demo</h1>
+<h1>Picamera2 MJPEG Streaming and Control</h1>
 <img src="stream.mjpg" width="640" height="480" />
 <br>
 <button id="servo1_up">Up</button>
