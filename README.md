@@ -3,10 +3,6 @@ Python code for the raspberry pi to control a PCA9685 based pan/tilt servo and t
 
 # Setup
 ```
-sudo apt-get install python3-pip
-sudo pip3 install flask
-sudo pip3 install smbus
-sudo pip3 install opencv-python
 sudo raspi-config
 	Select "Interfacing Options."
 	Select "I2C."
@@ -21,4 +17,5 @@ cd PCA9685-Pan-Tilt-Camera-3
 sudo python3 main.py
 ```
 Now visit the webpage shown in the output:
-![image](https://user-images.githubusercontent.com/5197831/217539943-a8492a73-fb53-4ba2-b512-10bb4dff0ef6.png)
+![image](https://user-images.githubusercontent.com/5197831/217870655-658c2930-d272-4f9d-b084-0afe1c06b967.png)
+
