@@ -10,7 +10,6 @@ from PCA9685 import PCA9685
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
-app = Flask(__name__)
 
 try:
     pwm = PCA9685()
@@ -27,7 +26,7 @@ MIN_ANGLE = 50
 PAGE = """\
 <html>
 <head>
-<title>picamera2 MJPEG streaming demo</title>
+<title>picamera2 MJPEG streaming and control</title>
 </head>
 <body>
 <h1>Picamera2 MJPEG Streaming Demo</h1>
@@ -139,8 +138,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                     if x > MIN_ANGLE:
                         x = x - 5
                         pwm.setRotationAngle(0, x)
-                        print(f"x: {x}")
-                    return redirect(url_for("index"))                    
+                        print(f"x: {x}")              
                     pass
             elif servo_id == '2':
                 if direction == 'left':
@@ -181,9 +179,7 @@ picam2 = Picamera2()
 picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
 output = StreamingOutput()
 picam2.start_recording(JpegEncoder(), FileOutput(output))
-@app.route("/")
-def index():
-    return render_template('index.html')
+
     
 
 
@@ -201,7 +197,7 @@ def starthome():
 ###########################################
 
 try:
-    if __name__ == '__main__':
+
         starthome()
         address = ('', 8000)
         server = StreamingServer(address, StreamingHandler)
