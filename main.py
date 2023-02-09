@@ -6,8 +6,6 @@ import socketserver
 import threading
 from http import server
 from threading import Condition
-from flask import Flask, request, redirect, url_for, send_file, render_template
-from flask import Response
 from PCA9685 import PCA9685
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
