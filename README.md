@@ -17,5 +17,6 @@ cd PCA9685-Pan-Tilt-Camera-3
 sudo python3 main.py
 ```
 Now visit the webpage shown in the output:
-![image](https://user-images.githubusercontent.com/5197831/217884979-74357a37-cf7b-4f27-909e-8debadeb9f14.png)
+![image](https://user-images.githubusercontent.com/5197831/217885379-b35d8763-e854-4d76-a236-87802e28e178.png)
+
 
