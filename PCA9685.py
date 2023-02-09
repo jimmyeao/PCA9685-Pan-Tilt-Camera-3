@@ -1,10 +1,6 @@
-
-
 #!/usr/bin/python3
 
-# Mostly copied from https://picamera.readthedocs.io/en/release-1.13/recipes2.html
 # Run this script, then point a web browser at http:<this-ip-address>:8000
-# Note: needs simplejpeg to be installed (pip3 install simplejpeg).
 
 import io
 import logging
@@ -12,13 +8,11 @@ import socketserver
 import threading
 from http import server
 from threading import Condition
-
 from flask import Response
 from PCA9685 import PCA9685
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
-
 
 try:
     pwm = PCA9685()
@@ -177,9 +171,6 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'Servo control signal sent')
 
-
-
-
 class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     allow_reuse_address = True
     daemon_threads = True
@@ -190,10 +181,6 @@ picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
 output = StreamingOutput()
 picam2.start_recording(JpegEncoder(), FileOutput(output))
 
-
-
-################################
-
 def starthome():
     global x, y
     x = 90
@@ -201,9 +188,6 @@ def starthome():
     pwm.setRotationAngle(0, x)
     pwm.setRotationAngle(1, y)
     return "Home position set"
-
-
-###########################################
 
 try:
         starthome()
