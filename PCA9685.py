@@ -1,100 +1,216 @@
-#!/usr/bin/python
-
-import time
-import math
-import smbus
-
-# ============================================================================
-# Raspi PCA9685 16-Channel PWM Servo Driver
-# ============================================================================
-
-class PCA9685:
-
-  # Registers/etc.
-  __SUBADR1            = 0x02
-  __SUBADR2            = 0x03
-  __SUBADR3            = 0x04
-  __MODE1              = 0x00
-  __MODE2              = 0x01
-  __PRESCALE           = 0xFE
-  __LED0_ON_L          = 0x06
-  __LED0_ON_H          = 0x07
-  __LED0_OFF_L         = 0x08
-  __LED0_OFF_H         = 0x09
-  __ALLLED_ON_L        = 0xFA
-  __ALLLED_ON_H        = 0xFB
-  __ALLLED_OFF_L       = 0xFC
-  __ALLLED_OFF_H       = 0xFD
 
 
-  def __init__(self, address=0x40, debug=False):
-    self.bus = smbus.SMBus(1)
-    self.address = address
-    self.debug = debug
-    if (self.debug):
-      print("Reseting PCA9685")
-    self.write(self.__MODE1, 0x00)
-	
-  def write(self, reg, value):
-    "Writes an 8-bit value to the specified register/address"
-    self.bus.write_byte_data(self.address, reg, value)
-    if (self.debug):
-      print("I2C: Write 0x%02X to register 0x%02X" % (value, reg))
-	  
-  def read(self, reg):
-    "Read an unsigned byte from the I2C device"
-    result = self.bus.read_byte_data(self.address, reg)
-    if (self.debug):
-      print("I2C: Device 0x%02X returned 0x%02X from reg 0x%02X" % (self.address, result & 0xFF, reg))
-    return result
-	
-  def setPWMFreq(self, freq):
-    "Sets the PWM frequency"
-    prescaleval = 25000000.0    # 25MHz
-    prescaleval /= 4096.0       # 12-bit
-    prescaleval /= float(freq)
-    prescaleval -= 1.0
-    if (self.debug):
-      print("Setting PWM frequency to %d Hz" % freq)
-      print("Estimated pre-scale: %d" % prescaleval)
-    prescale = math.floor(prescaleval + 0.5)
-    if (self.debug):
-      print("Final pre-scale: %d" % prescale)
+#!/usr/bin/python3
 
-    oldmode = self.read(self.__MODE1);
-    newmode = (oldmode & 0x7F) | 0x10        # sleep
-    self.write(self.__MODE1, newmode)        # go to sleep
-    self.write(self.__PRESCALE, int(math.floor(prescale)))
-    self.write(self.__MODE1, oldmode)
-    time.sleep(0.005)
-    self.write(self.__MODE1, oldmode | 0x80)
-    self.write(self.__MODE2, 0x04)
+# Mostly copied from https://picamera.readthedocs.io/en/release-1.13/recipes2.html
+# Run this script, then point a web browser at http:<this-ip-address>:8000
+# Note: needs simplejpeg to be installed (pip3 install simplejpeg).
 
-  def setPWM(self, channel, on, off):
-    "Sets a single PWM channel"
-    self.write(self.__LED0_ON_L+4*channel, on & 0xFF)
-    self.write(self.__LED0_ON_H+4*channel, on >> 8)
-    self.write(self.__LED0_OFF_L+4*channel, off & 0xFF)
-    self.write(self.__LED0_OFF_H+4*channel, off >> 8)
-    if (self.debug):
-      print("channel: %d  LED_ON: %d LED_OFF: %d" % (channel,on,off))
-	  
-  def setServoPulse(self, channel, pulse):
-    "Sets the Servo Pulse,The PWM frequency must be 50HZ"
-    pulse = pulse*4096/20000        #PWM frequency is 50HZ,the period is 20000us
-    self.setPWM(channel, 0, int(pulse))
-    
-  def setRotationAngle(self, channel, Angle): 
-    if(Angle >= 0 and Angle <= 180):
-        temp = Angle * (2000 / 180) + 501
-        self.setServoPulse(channel, temp)
-    else:
-        print("Angle out of range")
-        
-  def start_PCA9685(self):
-    self.write(self.__MODE2, 0x04)
-    #Just restore the stopped state that should be set for exit_PCA9685
-    
-  def exit_PCA9685(self):
-    self.write(self.__MODE2, 0x00)#Please use initialization or __MODE2 =0x04
+import io
+import logging
+import socketserver
+import threading
+from http import server
+from threading import Condition
 
+from flask import Response
+from PCA9685 import PCA9685
+from picamera2 import Picamera2
+from picamera2.encoders import JpegEncoder
+from picamera2.outputs import FileOutput
+
+
+try:
+    pwm = PCA9685()
+    pwm.setPWMFreq(50)
+except OSError as e:
+    # Log the error message
+    print("Error: ", e)
+    # Exit the program
+    sys.exit()
+x,y = 90,90
+MAX_ANGLE = 180
+MIN_ANGLE = 50
+
+PAGE = """\
+<html>
+<head>
+<title>picamera2 MJPEG stream</title>
+</head>
+<body>
+<h1>Picamera2 MJPEG Streaming Demo</h1>
+<img src="stream.mjpg" width="640" height="480" />
+<br>
+<button id="servo1_up">Up</button>
+<button id="servo1_down">Down</button>
+<button id="servo2_left">Left</button>
+<button id="servo2_right">Right</button>
+<button id="servo2_home">Home</button>
+<script>
+  document.getElementById("servo1_up").addEventListener("click", function() {
+    // send control signal to the server to rotate servo 1 up
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/servo/1/up");
+    xhr.send();
+  });
+  document.getElementById("servo1_down").addEventListener("click", function() {
+    // send control signal to the server to rotate servo 1 down
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/servo/1/down");
+    xhr.send();
+  });
+  document.getElementById("servo2_left").addEventListener("click", function() {
+    // send control signal to the server to rotate servo 2 left
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/servo/2/left");
+    xhr.send();
+  });
+  document.getElementById("servo2_right").addEventListener("click", function() {
+    // send control signal to the server to rotate servo 2 right
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/servo/2/right");
+    xhr.send();
+  });
+  document.getElementById("servo2_home").addEventListener("click", function() {
+    // send control signal to the server to rotate servo 2 right
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/servo/2/home");
+    xhr.send();
+  });
+</script>
+
+</body>
+</html>
+"""
+
+
+class StreamingOutput(io.BufferedIOBase):
+    def __init__(self):
+        self.frame = None
+        self.condition = Condition()
+
+    def write(self, buf):
+        with self.condition:
+            self.frame = buf
+            self.condition.notify_all()
+
+
+class StreamingHandler(server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/':
+            self.send_response(301)
+            self.send_header('Location', '/index.html')
+            self.end_headers()
+        elif self.path == '/index.html':
+            content = PAGE.encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            self.send_header('Content-Length', len(content))
+            self.end_headers()
+            self.wfile.write(content)
+        elif self.path == '/stream.mjpg':
+            self.send_response(200)
+            self.send_header('Age', 0)
+            self.send_header('Cache-Control', 'no-cache, private')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=FRAME')
+            self.end_headers()
+            try:
+                while True:
+                    with output.condition:
+                        output.condition.wait()
+                        frame = output.frame
+                    self.wfile.write(b'--FRAME\r\n')
+                    self.send_header('Content-Type', 'image/jpeg')
+                    self.send_header('Content-Length', len(frame))
+                    self.end_headers()
+                    self.wfile.write(frame)
+                    self.wfile.write(b'\r\n')
+            except Exception as e:
+                logging.warning(
+                    'Removed streaming client %s: %s',
+                    self.client_address, str(e))
+        elif self.path.startswith('/servo'):
+            global x,y
+            # This is the endpoint that will handle the incoming requests from the buttons
+            servo_id, direction = self.path.split('/')[2:]
+            if servo_id == '1':
+                if direction == 'up':
+                    # Increase the PWM duty cycle for servo 1
+                    if x < MAX_ANGLE:
+                        x = x + 5
+                        pwm.setRotationAngle(0, x)
+                        print(f"x: {x}")
+                    pass
+                elif direction == 'down':
+                    # Decrease the PWM duty cycle for servo 1
+                    if x > MIN_ANGLE:
+                        x = x - 5
+                        pwm.setRotationAngle(0, x)
+                        print(f"x: {x}")
+                                       
+                    pass
+            elif servo_id == '2':
+                if direction == 'left':
+                    # Increase the PWM duty cycle for servo 2
+                    if y > MIN_ANGLE:
+                        y = y - 5
+                        pwm.setRotationAngle(1, y)
+                        print(f"y: {y}")                    
+                    pass
+                elif direction == 'right':
+                    # Decrease the PWM duty cycle for servo 2
+                    if y < MAX_ANGLE:
+                        y = y + 5
+                        pwm.setRotationAngle(1, y)
+                        print(f"y: {y}")                    
+                    pass
+                elif direction == 'home':
+                    x = 90
+                    y = 90
+                    pwm.setRotationAngle(0, x)
+                    pwm.setRotationAngle(1, y)
+                    return "Home position set"  
+                    pass                  
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'Servo control signal sent')
+
+
+
+
+class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+picam2 = Picamera2()
+picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
+output = StreamingOutput()
+picam2.start_recording(JpegEncoder(), FileOutput(output))
+
+
+
+################################
+
+def starthome():
+    global x, y
+    x = 90
+    y = 90
+    pwm.setRotationAngle(0, x)
+    pwm.setRotationAngle(1, y)
+    return "Home position set"
+
+
+###########################################
+
+try:
+        starthome()
+        address = ('', 8000)
+        server = StreamingServer(address, StreamingHandler)
+        server.serve_forever()
+
+      
+finally:
+    picam2.stop_recording()
