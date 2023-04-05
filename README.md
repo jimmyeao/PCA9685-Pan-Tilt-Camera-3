@@ -2,6 +2,12 @@
 Python code for the raspberry pi to control a PCA9685 based pan/tilt servo and to stream/capture images
 
 Added zoom in/out and take snapshot - pictures saved in /home/pi - edit the code if you want a different location!
+Note, when taking a picture, it does not respect the zoom level, i haven't figured this bit out yet.
+
+I would also like to add:
+
+Camera Controls (Exposre, resolution, white balance etc)
+
 
 # Setup
 ```
