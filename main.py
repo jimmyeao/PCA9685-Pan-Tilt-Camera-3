@@ -41,41 +41,109 @@ PAGE = """\
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMxFTUfQGfIOkAZz6nRd5cXf7p//c1l5zA8f8F+tzJ5U5//f3frY0X5L+U/" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.4.0-alpha1/dist/js/bootstrap.min.js" integrity="sha384-pzjw8f+ua7Kw1TIq0v8FqFjcJ6pajs/rfdfs3SO+kD4Ck5BdPtF+to8xMp9MvcY/" crossorigin="anonymous"></script>
-    <style>
+  
+  <style>
     .stream-image {
-      max-width: 80%;
+      max-width: 50%;
       height: auto;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+    .control-panel {
+      padding: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 5px;
+      background-color: #f8f9fa;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+    .servo-control {
+      margin-bottom: 10px;
+      border-radius: 5px;
+      background-color: #e9ecef;
+      padding: 10px;
+    }
+    .servo-control label {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .btn-control {
+      margin-right: 10px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 
 <body>
-  <div class="container">
-    <h1 class="text-center my-3">Picamera2 MJPEG Streaming and Control</h1>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <a class="navbar-brand" href="#">Picamera2 MJPEG Streaming and Control</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="#stream">Stream</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#controls">Controls</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container my-5">
     <div class="row">
       <div class="col-md-8 offset-md-2">
-  <img src="stream.mjpg" class="img-fluid stream-image" alt="Camera Stream">
-</div>
+        <h2 class="text-center mb-4">Live Stream</h2>
+        <div class="ratio ratio-16x9">
+          <img src="stream.mjpg" class="img-fluid stream-image" alt="Camera Stream">
+        </div>
+      </div>
+    </div>
 
+    <hr class="my-5">
+
+    <div class="row my-4" id="controls">
+      <div class="col-md-8 offset-md-2">
+        <h2 class="text-center mb-4">Camera Controls</h2>
+        <div class="row justify-content-center mb-4">
+          <div class="col-md-6 col-lg-4">
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title text-center">Servo 1</h5>
+                <input type="range" class="form-range" id="servo1" min="0" max="180" step="1" value="90">
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-4">
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title text-center">Servo 2</h5>
+                <input type="range" class="form-range" id="servo2" min="0" max="180" step="1" value="90">
+              </div>
+            </div>
+          </div>
+          <div class="col-md-12 col-lg-4">
+            <div class="d-grid gap-2">
+              <button class="btn btn-primary mb-3" id="servo2_home">Home</button>
+              <button class="btn btn-success mb-3" id="take_picture">Take Picture</button>
+              <button class="btn btn-success mb-3" id="zoom_in">Zoom In</button>
+              <button class="btn btn-success mb-3" id="zoom_out">Zoom Out</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="row mt-4">
-  <div class="col-md-8 offset-md-2 d-flex justify-content-center">
-    <div class="d-flex flex-column mx-2">
-      <label for="servo1">Servo 1</label>
-      <input type="range" class="form-range" id="servo1" min="0" max="180" step="1" value="90">
-    </div>
-    <div class="d-flex flex-column mx-2">
-      <label for="servo2">Servo 2</label>
-      <input type="range" class="form-range" id="servo2" min="0" max="180" step="1" value="90">
-    </div>
-    <button class="btn btn-primary mx-2" id="servo2_home">Home</button>
-    <button class="btn btn-success mx-2" id="take_picture">Take Picture</button>
-    <button class="btn btn-success mx-2" id="zoom_in">Zoom In</button>
-    <button class="btn btn-success mx-2" id="zoom_out">Zoom Out</button>
-  </div>
-</div>
 
   </div>
+
+  <script>
+    // Add your JavaScript code here
+  </script>
+
+
 
 
 <script>
@@ -147,7 +215,7 @@ def reset_sliders():
     # reset sliders to default positions
     document.getElementById("servo1").value = 90;
     document.getElementById("servo2").value = 90;
-
+    reset_sliders_flag = False
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
         self.frame = None
@@ -160,6 +228,10 @@ class StreamingOutput(io.BufferedIOBase):
 
 
 class StreamingHandler(server.BaseHTTPRequestHandler):
+    allow_reuse_address = True
+    daemon_threads = True
+    reset_sliders_flag = False
+    
     def do_GET(self):
         if self.path == "/":
             self.send_response(301)
@@ -338,6 +410,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     allow_reuse_address = True
     daemon_threads = True
+    reset_sliders_flag = False
 
 
 picam2 = Picamera2()
