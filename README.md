@@ -1,6 +1,8 @@
 # PCA9685-Pan-Tilt-Camera-3
 Python code for the raspberry pi to control a PCA9685 based pan/tilt servo and to stream/capture images
 
+Added zoom in/out and take snapshot - pictures saved in /home/pi - edit the code if you want a different location!
+
 # Setup
 ```
 sudo raspi-config
